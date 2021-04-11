@@ -2,10 +2,11 @@
 SetFactory("OpenCASCADE");
 
 Mesh.MshFileVersion = 2.2;
-Mesh.CharacteristicLengthFactor = 0.3;
+Mesh.CharacteristicLengthFactor = 1;
+Mesh.CharacteristicLengthMax = 0.005;
 
-For barsAngle In {0:10:10}
-  For rotAngle In {0:45:45}
+For barsAngle In {0:10:101}
+  For rotAngle In {0:45:451}
     //Deletes the current model (all model entities and their associated meshes).
     Delete Model;
     //Deletes all physical groups.
@@ -15,6 +16,7 @@ For barsAngle In {0:10:10}
     Radius = 7.5/100;
     airgap = 0.1/100;
 
+    // Calculate thickness for these magnets https://www.kjmagnetics.com/thickness.calculator.asp
     // FIRST LAYER
     poles = 2;
     pieces = {24, 16, 12};
@@ -123,8 +125,12 @@ For barsAngle In {0:10:10}
     Disk(3000) = {0, 0, zpos, Radius, Radius};
     c = 0;
     For j In {0:#pieces[]-1}
+      extraAngle = 0;
+      If (pieces[j] > 13)
+        extraAngle = Pi / pieces[j];
+      EndIf
       For i In {1:pieces[j]}
-        angle = 2 * Pi / pieces[j] * i + rotAngle;
+        angle = 2 * Pi / pieces[j] * i + rotAngle + extraAngle;
         yangle = magnetD[j] * Cos(angle);
         xangle = magnetD[j] * Sin(angle);
 
@@ -158,7 +164,7 @@ For barsAngle In {0:10:10}
 
 
     zpos = zpos + layerHeight;
-    backIronHeight = 1/100;
+    backIronHeight = 0.2/100;
     //+
     Cylinder(4000) = {0, 0, -backIronHeight, 0, 0, backIronHeight, Radius, 2*Pi};
     //+

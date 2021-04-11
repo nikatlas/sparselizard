@@ -45,6 +45,7 @@ void writeFile(std::string filename, std::string data) {
 struct DataPack {
     expression A;
     expression B;
+    expression H;
     expression F;
     double T;
     double TBottom;
@@ -72,6 +73,7 @@ struct DataPack {
         createPath(path + "/A");
         createPath(path + "/F");
         createPath(path + "/T");
+        createPath(path + "/H");
 
         int all = this->allRegion;
         int alpha = this->alpha;
@@ -79,6 +81,7 @@ struct DataPack {
         
         this->A.write(all, path + "/A/AField"+std::to_string((int)alpha)+".vtu", 2);
         this->B.write(all, path + "/B/BField"+std::to_string((int)alpha)+std::to_string((int)ironAlpha)+".vtu", 2);
+        this->H.write(all, path + "/H/HField"+std::to_string((int)alpha)+std::to_string((int)ironAlpha)+".vtu", 2);
         this->F.write(all, path + "/F/Force"+std::to_string((int)alpha)+".vtu", 2);
         std::string data = "Bottom,Iron,Top,Bottom Magnets,Top Magnets\r\n" +
             std::to_string(this->TBottom) + "," + std::to_string(this->TIron) + "," + std::to_string(this->TTop) + "," + std::to_string(this->TBM) + "," + std::to_string(this->TTM);
@@ -104,31 +107,31 @@ DataPack* sparselizard(mesh mymesh, double alpha = 0, double ironAlpha = 0, bool
     // Magnet Power
     double MagnetB = 1;
 
-    int stator = 1, firstmagnetup = 2, firstmagnetdown = 3,
-     ironbars = 4,
-     secondmagnetup = 6, secondmagnetdown = 7,
-    //  secondmagnetair = 8, ironair = 9,
-     topStator = 20;
-    // int IronTop = 21, SecondMagnetBottom = 22;
-    // int topStatorTop = 24, bottomStatorBottom = 23;
-    
+    int bottomStator = 1,
+        firstmagnetup = 2,
+        firstmagnetdown = 3,
+        ironbars = 4,
+        secondmagnetup = 6,
+        secondmagnetdown = 7,
+        air = 10,
+        topStator = 20;
+
     // Define new physical regions for convenience:
     int magnetsdown = selectunion({secondmagnetdown, firstmagnetdown});
     int magnetsup = selectunion({secondmagnetup, firstmagnetup});
     int magnets = selectunion({firstmagnetdown, firstmagnetup, secondmagnetdown, secondmagnetup});
-    int iron = selectunion({ironbars, stator, topStator});
+    int iron = selectunion({ironbars, bottomStator, topStator});
     int topPart = selectunion({ secondmagnetup, secondmagnetdown, topStator });
-    int bottomPart = selectunion({ firstmagnetup, firstmagnetdown, stator, ironbars });
+    int bottomPart = selectunion({ firstmagnetup, firstmagnetdown, bottomStator, ironbars });
     int rotor = selectunion({secondmagnetup, secondmagnetdown});
     int all = selectall();
-
     int bottommagnets = selectunion({firstmagnetup, firstmagnetdown});
     int topmagnets = selectunion({secondmagnetup, secondmagnetdown});
     int middlesection = selectunion({ironbars});
 
     // Define a spanning tree to gauge the magnetic vector potential (otherwise the matrix is singular).
     // Start growing the tree from the regions with constrained potential vector (here the contour): 
-    spanningtree spantree({topStator});
+    spanningtree spantree({ bottomStator, topStator });
     // Write it for illustration:
     // spantree.write("results/spantree.pos");
 
@@ -143,7 +146,7 @@ DataPack* sparselizard(mesh mymesh, double alpha = 0, double ironAlpha = 0, bool
     az.setorder(all, 1);
     // Put a magnetic wall
     // az.setconstraint(topStator);
-    // az.setconstraint(bottomStatorBottom);
+    // az.setconstraint(bottomStator);
 
     // The remanent induction field in the magnet is 0.5 Tesla perpendicular to the magnet:
     expression normedradialdirection = array3x1(0,0,1);
@@ -245,6 +248,7 @@ DataPack* sparselizard(mesh mymesh, double alpha = 0, double ironAlpha = 0, bool
     pack->F = (expression)magforce;
     pack->A = (expression)az;
     pack->B = curl(az);
+    pack->H = curl(az)/mu;
     pack->alpha = alpha;
     pack->ironAlpha = ironAlpha;
     pack->allRegion = selectall();
@@ -254,24 +258,50 @@ DataPack* sparselizard(mesh mymesh, double alpha = 0, double ironAlpha = 0, bool
     return pack;
 }
 
-std::string getFilename(int alpha,int ironAlpha,int argc,char* argv[]) {
+std::string getFilename(int alpha,int ironAlpha,int argc,char* argv[], bool autoname = false) {
     // FILE MESH 2.2 .msh
     std::string num = ((alpha <= 9) ? "0" : "") + (std::to_string((int)(alpha)));
     std::string numiron = ((ironAlpha <= 9) ? "0" : "") + (std::to_string((int)(ironAlpha)));
     // std::string test = "models/New.msh";
     std::string filename;
-    if ( argc < 4 ) {
+    if ( argc < 4 && autoname == false ) {
         // take file from args
         filename = (std::string)"models/" + argv[1];
-        std::cout << "Loading model: " << filename << endl;
+        cout << "Loading model: " << filename << endl;
     } else {
         filename = (std::string)"models/parts/" + argv[1] + num + "A" + numiron + ".msh";
-        std::cout << "Loading model(autoname): " << filename << endl;
+        cout << "Loading model(autoname): " << filename << endl;
     }
     return filename;
 }
 
+void simulate(int argc, char *argv[]) {
+    if (argc < 2) {
+        std::cout << "Provide the name of the mesh file!" << std::endl;
+        return;
+    }
+
+    string filename = getFilename(0, 0, argc, argv, true);
+    mesh mymesh(filename);
+
+    DataPack* pack;
+    pack = sparselizard(mymesh, 0, 0, false);
+    pack->saveData();
+}
+
 int main(int argc, char *argv[])
+{
+    PetscInitialize(0,{},0,0);
+    wallclock clk;
+
+    simulate(argc, argv);
+
+    clk.print("Total run time:");
+    PetscFinalize();
+    return 0;
+}
+
+int oldmain(int argc, char *argv[])
 {   
     PetscInitialize(0,{},0,0);
 
