@@ -32,7 +32,7 @@ def loadFile(filename):
     f.close()
 
     lines = data.strip().split('\n')
-    array = np.array([line.split(',') for line in lines])
+    array = np.array([line.split(',') for line in lines[1:]])
 
     return np.array([[float(x) for x in lines] for lines in array.transpose()])
 

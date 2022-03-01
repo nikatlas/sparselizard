@@ -430,7 +430,7 @@ int main(int argc, char *argv[])
     int pieces = (end-start)/alphaStep;
 
 
-    string folderName = "October";
+    string folderName = "February";
 
     createPath("cache");
 

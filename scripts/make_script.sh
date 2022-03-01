@@ -9,6 +9,12 @@ echo "GCC_BINARY is set to ${GCC}"
 echo "GXX_BINARY is set to ${GXX}"
 echo "PETSC_PATH is ${PETSC_PATH}"
 
+if [ -z "$var" ]
+then
+  echo "Please specify PETSC_PATH environment variable. It should be something like /Users/username/petsc_install_directory"
+  exit
+fi
+
 pwd=$(pwd)
 echo "$pwd"
 echo $SLlibs
@@ -17,7 +23,7 @@ echo $PETSC_DIR
 mkdir build
 cd build
 
-// CHECK That DPETSC_PATH is set correctly!!!
+# CHECK That DPETSC_PATH is set correctly!!!
 cmake -DCMAKE_C_COMPILER=$GCC -DCMAKE_CXX_COMPILER=$GXX -DPETSC_PATH=${PETSC_PATH} ..
 cmake --build . -j$(nproc)
 
